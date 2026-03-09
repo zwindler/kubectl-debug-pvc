@@ -30,7 +30,7 @@ When a pod holds an exclusive (RWO) lock on a PVC, you can't simply spin up anot
 ### From source
 
 ```bash
-git clone https://github.com/dgermain/kubectl-debug-pvc.git
+git clone https://github.com/zwindler/kubectl-debug-pvc.git
 cd kubectl-debug-pvc
 make install
 ```
