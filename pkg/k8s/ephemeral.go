@@ -31,8 +31,8 @@ type DebugVolumeMount struct {
 }
 
 // CreateEphemeralContainer patches the pod to add an ephemeral container with the
-// specified volume mounts. This uses the same API that kubectl debug uses, but adds
-// volumeMounts which kubectl debug doesn't support.
+// specified volume mounts. This uses the same API that kubectl debug uses, but includes
+// volumeMounts which kubectl debug doesn't expose as a CLI flag.
 func (c *Client) CreateEphemeralContainer(ctx context.Context, opts EphemeralContainerOpts) (string, error) {
 	containerName := fmt.Sprintf("debugger-%s", randomSuffix(8))
 

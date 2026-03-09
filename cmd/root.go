@@ -27,9 +27,9 @@ var rootCmd = &cobra.Command{
 	Long: `kubectl debug-pvc creates an ephemeral debug container in a running pod
 with access to its PVC-mounted volumes.
 
-Unlike 'kubectl debug', this tool supports mounting PVC volumes into the
-ephemeral container by patching the pod's ephemeral containers subresource
-directly via the Kubernetes API.
+Unlike 'kubectl debug', this tool includes volumeMounts in the ephemeral
+container spec, allowing access to the pod's PVC-backed volumes. It patches
+the pod's ephemeral containers subresource directly via the Kubernetes API.
 
 When run without flags, an interactive TUI guides you through:
   1. Selecting a namespace (filtered to those with PVC-backed pods)

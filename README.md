@@ -2,7 +2,9 @@
 
 A kubectl plugin that creates ephemeral debug containers in running Kubernetes pods **with PVC volume access**.
 
-`kubectl debug` can create ephemeral containers, but it cannot mount volumes into them. This tool patches the pod's `ephemeralcontainers` subresource directly via the Kubernetes API, including `volumeMounts` -- something `kubectl debug` does not support.
+`kubectl debug` can create ephemeral containers, but its CLI does not expose `volumeMounts` for them. While Kubernetes 1.33+ added `--subresource` support to commands like `kubectl get` and `kubectl patch` ([KEP-2590](https://github.com/kubernetes/enhancements/issues/2590)), this does not extend to `kubectl debug` itself, and as of Kubernetes 1.35 only the `status`, `scale`, and `resize` subresources are supported.
+
+This tool patches the pod's `ephemeralcontainers` subresource directly via the Kubernetes API with `volumeMounts` included, and wraps the entire workflow -- PVC discovery, pod filtering, volume selection, container creation, and attach -- into a single command.
 
 ## Why
 
@@ -142,7 +144,7 @@ kubectl debug-pvc -n my-namespace -p my-pod-0 -v data:/debug/data -i alpine:late
 5. Waits for the ephemeral container to reach Running state
 6. Executes `kubectl attach -it` to connect you to the debug container
 
-This uses the same Kubernetes API that `kubectl debug` uses. The key difference is that `volumeMounts` are included in the ephemeral container spec, which the `kubectl debug` CLI does not expose.
+This uses the same Kubernetes API that `kubectl debug` uses internally. The key difference is that `volumeMounts` are included in the ephemeral container spec, which the `kubectl debug` CLI does not expose as a flag. While you could achieve the same result with a raw `kubectl patch --subresource ephemeralcontainers` command, this tool automates the discovery, patch construction, readiness wait, and attach steps.
 
 ## RBAC
 

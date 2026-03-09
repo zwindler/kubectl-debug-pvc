@@ -29,7 +29,7 @@ pkg/
 
 ### Key Design Decisions
 
-- **Ephemeral container PATCH**: The core mechanism patches the pod's `ephemeralcontainers` subresource with a strategic merge patch that includes `volumeMounts`. This is the same Kubernetes API that `kubectl debug` uses, but `kubectl debug` does not expose the `volumeMounts` field. The relevant code is in `pkg/k8s/ephemeral.go`.
+- **Ephemeral container PATCH**: The core mechanism patches the pod's `ephemeralcontainers` subresource with a strategic merge patch that includes `volumeMounts`. This is the same Kubernetes API that `kubectl debug` uses, but `kubectl debug` does not expose `volumeMounts` as a CLI flag. Note: Kubernetes 1.33+ added `--subresource` support to `kubectl get/patch/edit/apply/replace` (KEP-2590), but as of 1.35 only `status`, `scale`, and `resize` subresources are supported — `ephemeralcontainers` is not in that list. Even if it were, the tool's value is in the full workflow (PVC discovery, filtering, patch construction, readiness wait, attach), not just the API call. The relevant code is in `pkg/k8s/ephemeral.go`.
 - **PVC-only filtering**: Namespace and pod lists are pre-filtered to only show resources that have PVC-backed volumes. This is the primary value-add over a generic debug tool.
 - **PVC-first discovery**: To avoid scanning all pods across all namespaces (which is extremely slow on large clusters), the discovery phase lists PVCs cluster-wide (a single API call) to determine which namespaces have PVCs. Pods are only listed within a single namespace after the user selects one. See `pkg/k8s/discovery.go`.
 - **TUI state machine**: The Bubble Tea model in `pkg/tui/app.go` uses a `step` enum to progress through: Loading -> Namespace -> Pod -> Volume -> Config -> Progress -> Done.
