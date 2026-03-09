@@ -52,19 +52,24 @@ func (c *Client) CreateEphemeralContainer(ctx context.Context, opts EphemeralCon
 	}
 
 	targetContainer := ""
+	var targetSecurityContext *corev1.SecurityContext
 	if len(pod.Spec.Containers) > 0 {
 		targetContainer = pod.Spec.Containers[0].Name
+		targetSecurityContext = pod.Spec.Containers[0].SecurityContext
 	}
 
-	// Build the ephemeral container spec
+	// Build the ephemeral container spec.
+	// Copy securityContext from the target container so the debug container
+	// satisfies the same PodSecurity policy the pod already passes (e.g. restricted).
 	ephemeralContainer := corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-			Name:         containerName,
-			Image:        opts.Image,
-			Command:      []string{"/bin/sh"},
-			Stdin:        true,
-			TTY:          true,
-			VolumeMounts: mounts,
+			Name:            containerName,
+			Image:           opts.Image,
+			Command:         []string{"/bin/sh"},
+			Stdin:           true,
+			TTY:             true,
+			VolumeMounts:    mounts,
+			SecurityContext: targetSecurityContext,
 		},
 		TargetContainerName: targetContainer,
 	}

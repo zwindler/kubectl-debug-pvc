@@ -19,6 +19,7 @@ When a pod holds an exclusive (RWO) lock on a PVC, you can't simply spin up anot
 - Vim-style navigation (`j`/`k`) and fuzzy filtering (`/`) in the TUI
 - Multi-volume selection -- mount one or more PVCs in a single debug session
 - Automatic `kubectl attach` after container creation
+- PodSecurity compatible -- inherits the target container's `securityContext` so the debug container satisfies `restricted`, `baseline`, or any enforced policy
 
 ## Requirements
 
@@ -173,6 +174,14 @@ rules:
     resources: ["pods/attach"]
     verbs: ["create"]
 ```
+
+## Limitations
+
+### Ephemeral containers cannot be removed
+
+Ephemeral containers are append-only in the Kubernetes API. Once created, they cannot be deleted or modified -- this is a Kubernetes design constraint, not a limitation of this tool. Stopped debug containers remain as terminated entries in the pod spec. They consume no CPU or memory, but will show up in `kubectl describe pod` output.
+
+The only way to clean them up is to restart the pod (e.g., `kubectl rollout restart deployment/...`).
 
 ## License
 

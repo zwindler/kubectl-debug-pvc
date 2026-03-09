@@ -1,4 +1,4 @@
-module github.com/dgermain/kubectl-debug-pvc
+module github.com/zwindler/kubectl-debug-pvc
 
 go 1.25.6
 

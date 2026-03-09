@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/dgermain/kubectl-debug-pvc/pkg/k8s"
-	"github.com/dgermain/kubectl-debug-pvc/pkg/tui"
 	"github.com/spf13/cobra"
+	"github.com/zwindler/kubectl-debug-pvc/pkg/k8s"
+	"github.com/zwindler/kubectl-debug-pvc/pkg/tui"
 )
 
 var (

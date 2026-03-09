@@ -1,6 +1,6 @@
 package main
 
-import "github.com/dgermain/kubectl-debug-pvc/cmd"
+import "github.com/zwindler/kubectl-debug-pvc/cmd"
 
 func main() {
 	cmd.Execute()

@@ -93,7 +93,7 @@ After any code change, verify:
 ### Naming
 
 - Binary name: `kubectl-debug_pvc` (underscore for the kubectl plugin discovery mechanism to map `kubectl debug-pvc`).
-- The Go module is `github.com/dgermain/kubectl-debug-pvc`.
+- The Go module is `github.com/zwindler/kubectl-debug-pvc`.
 
 ## Testing
 

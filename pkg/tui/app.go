@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dgermain/kubectl-debug-pvc/pkg/k8s"
+	"github.com/zwindler/kubectl-debug-pvc/pkg/k8s"
 )
 
 // step represents the current step in the TUI wizard.

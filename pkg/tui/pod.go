@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dgermain/kubectl-debug-pvc/pkg/k8s"
+	"github.com/zwindler/kubectl-debug-pvc/pkg/k8s"
 )
 
 // podView renders the pod selection step.
