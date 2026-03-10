@@ -37,6 +37,7 @@ type podsLoadedMsg struct {
 
 type containerCreatedMsg struct {
 	containerName string
+	warnings      []string
 	err           error
 }
 
@@ -70,14 +71,16 @@ type model struct {
 	// Progress step
 	creating      bool
 	containerName string
+	warnings      []string
 
 	// Common
-	cursor     int
-	filterMode bool
-	filterText string
-	err        error
-	width      int
-	height     int
+	cursor         int
+	viewportOffset int // top index of visible window for list views
+	filterMode     bool
+	filterText     string
+	err            error
+	width          int
+	height         int
 }
 
 // NewModel creates a new TUI model.
@@ -129,6 +132,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.namespaces = msg.namespaces
 		m.currentStep = stepNamespace
 		m.cursor = 0
+		m.viewportOffset = 0
 		return m, nil
 
 	case podsLoadedMsg:
@@ -140,6 +144,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.pods = msg.pods
 		m.currentStep = stepPod
 		m.cursor = 0
+		m.viewportOffset = 0
 		m.filterText = ""
 		m.filterMode = false
 		return m, nil
@@ -151,6 +156,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.containerName = msg.containerName
+		m.warnings = msg.warnings
 		return m, nil
 
 	case tea.KeyMsg:
@@ -195,11 +201,13 @@ func (m model) handleNamespaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterMode = false
 			m.filterText = ""
 			m.cursor = 0
+			m.viewportOffset = 0
 			return m, nil
 		case tea.KeyBackspace:
 			if len(m.filterText) > 0 {
 				m.filterText = m.filterText[:len(m.filterText)-1]
 				m.cursor = 0
+				m.viewportOffset = 0
 			}
 			return m, nil
 		case tea.KeyEnter:
@@ -216,6 +224,7 @@ func (m model) handleNamespaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if msg.Type == tea.KeyRunes {
 				m.filterText += string(msg.Runes)
 				m.cursor = 0
+				m.viewportOffset = 0
 			}
 			return m, nil
 		}
@@ -231,10 +240,12 @@ func (m model) handleNamespaceKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "j", "down":
 		if m.cursor < len(filtered)-1 {
 			m.cursor++
+			m.viewportOffset = clampViewport(m.cursor, m.viewportOffset, m.height)
 		}
 	case "k", "up":
 		if m.cursor > 0 {
 			m.cursor--
+			m.viewportOffset = clampViewport(m.cursor, m.viewportOffset, m.height)
 		}
 	case "enter":
 		if len(filtered) > 0 && m.cursor < len(filtered) {
@@ -256,11 +267,13 @@ func (m model) handlePodKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.filterMode = false
 			m.filterText = ""
 			m.cursor = 0
+			m.viewportOffset = 0
 			return m, nil
 		case tea.KeyBackspace:
 			if len(m.filterText) > 0 {
 				m.filterText = m.filterText[:len(m.filterText)-1]
 				m.cursor = 0
+				m.viewportOffset = 0
 			}
 			return m, nil
 		case tea.KeyEnter:
@@ -271,12 +284,14 @@ func (m model) handlePodKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.filterMode = false
 				m.currentStep = stepVolume
 				m.cursor = 0
+				m.viewportOffset = 0
 			}
 			return m, nil
 		default:
 			if msg.Type == tea.KeyRunes {
 				m.filterText += string(msg.Runes)
 				m.cursor = 0
+				m.viewportOffset = 0
 			}
 			return m, nil
 		}
@@ -292,10 +307,12 @@ func (m model) handlePodKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "j", "down":
 		if m.cursor < len(filtered)-1 {
 			m.cursor++
+			m.viewportOffset = clampViewport(m.cursor, m.viewportOffset, m.height)
 		}
 	case "k", "up":
 		if m.cursor > 0 {
 			m.cursor--
+			m.viewportOffset = clampViewport(m.cursor, m.viewportOffset, m.height)
 		}
 	case "enter":
 		if len(filtered) > 0 && m.cursor < len(filtered) {
@@ -303,10 +320,12 @@ func (m model) handlePodKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.volumeSelected = make([]bool, len(m.selectedPod.PVCVolumes))
 			m.currentStep = stepVolume
 			m.cursor = 0
+			m.viewportOffset = 0
 		}
 	case "esc":
 		m.currentStep = stepNamespace
 		m.cursor = 0
+		m.viewportOffset = 0
 		m.filterText = ""
 		m.filterMode = false
 	}
@@ -379,9 +398,6 @@ func (m model) handleConfigKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.err = nil
 		return m, tea.Batch(m.spinner.Tick, m.createEphemeralContainer())
 	case tea.KeyRunes:
-		if msg.String() == "q" && m.configField != 0 && m.configField != 1 {
-			return m, tea.Quit
-		}
 		if m.configField == 0 {
 			m.imageInput += string(msg.Runes)
 		} else {
@@ -475,14 +491,14 @@ func (m model) createEphemeralContainer() tea.Cmd {
 			}
 		}
 
-		containerName, err := m.k8sClient.CreateEphemeralContainer(ctx, k8s.EphemeralContainerOpts{
+		containerName, warnings, err := m.k8sClient.CreateEphemeralContainer(ctx, k8s.EphemeralContainerOpts{
 			PodName:      m.selectedPod.Name,
 			Namespace:    m.selectedNamespace,
 			Image:        m.imageInput,
 			VolumeMounts: mounts,
 		})
 
-		return containerCreatedMsg{containerName: containerName, err: err}
+		return containerCreatedMsg{containerName: containerName, warnings: warnings, err: err}
 	}
 }
 
@@ -505,4 +521,21 @@ func Run(client *k8s.Client) (namespace, pod, container string, shouldAttach boo
 	fm := finalModel.(model)
 	ns, podName, containerName, attach := fm.GetAttachInfo()
 	return ns, podName, containerName, attach, nil
+}
+
+// clampViewport adjusts the viewport offset so the cursor stays within the
+// visible window. headerLines accounts for the title/filter rows above the list.
+func clampViewport(cursor, offset, termHeight int) int {
+	const headerLines = 5 // title + subtitle + filter row + blank line + help
+	visible := termHeight - headerLines
+	if visible < 1 {
+		visible = 1
+	}
+	if cursor < offset {
+		return cursor
+	}
+	if cursor >= offset+visible {
+		return cursor - visible + 1
+	}
+	return offset
 }

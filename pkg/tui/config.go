@@ -59,7 +59,7 @@ func configView(m model) string {
 		}
 	}
 
-	b.WriteString(helpStyle.Render("\n  tab: next field | enter: create debug container | esc: back | q: quit"))
+	b.WriteString(helpStyle.Render("\n  tab: next field | enter: create debug container | esc: back | ctrl+c: quit"))
 
 	return b.String()
 }

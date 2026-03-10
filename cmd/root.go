@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,12 +13,13 @@ import (
 )
 
 var (
-	kubeconfig string
-	namespace  string
-	pod        string
-	volumes    []string
-	image      string
-	mountBase  string
+	kubeconfig  string
+	kubeContext string
+	namespace   string
+	pod         string
+	volumes     []string
+	image       string
+	mountBase   string
 )
 
 // rootCmd represents the base command.
@@ -51,9 +53,10 @@ You can also use flags for non-interactive / scripted usage.`,
 
 func init() {
 	rootCmd.Flags().StringVar(&kubeconfig, "kubeconfig", "", "Path to kubeconfig file (default: standard resolution)")
+	rootCmd.Flags().StringVar(&kubeContext, "context", "", "Kubeconfig context to use (default: current context)")
 	rootCmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
 	rootCmd.Flags().StringVarP(&pod, "pod", "p", "", "Pod name")
-	rootCmd.Flags().StringSliceVarP(&volumes, "volume", "v", nil, "Volume mounts in format name:mountpath (can be repeated)")
+	rootCmd.Flags().StringArrayVarP(&volumes, "volume", "v", nil, "Volume mounts in format name:mountpath (can be repeated)")
 	rootCmd.Flags().StringVarP(&image, "image", "i", "ubuntu:latest", "Debug container image")
 	rootCmd.Flags().StringVar(&mountBase, "mount-base", "/debug", "Base mount path (used in interactive mode)")
 }
@@ -66,8 +69,15 @@ func Execute() {
 }
 
 func runDebugPVC(cmd *cobra.Command, args []string) error {
+	// Preflight: ensure kubectl is available in PATH before doing anything.
+	// We need kubectl for the attach step; check early so we don't create an
+	// ephemeral container (which cannot be removed) and then fail to attach.
+	if _, err := exec.LookPath("kubectl"); err != nil {
+		return fmt.Errorf("kubectl not found in PATH: %w", err)
+	}
+
 	// Initialize K8s client
-	client, err := k8s.NewClient(kubeconfig)
+	client, err := k8s.NewClient(kubeconfig, kubeContext)
 	if err != nil {
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
@@ -105,9 +115,20 @@ func runNonInteractive(client *k8s.Client) error {
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid volume format %q, expected name:mountpath", v)
 		}
+		volName := parts[0]
+		mountPath := parts[1]
+		if volName == "" {
+			return fmt.Errorf("invalid volume format %q: volume name must not be empty", v)
+		}
+		if mountPath == "" {
+			return fmt.Errorf("invalid volume format %q: mount path must not be empty", v)
+		}
+		if mountPath[0] != '/' {
+			return fmt.Errorf("invalid volume format %q: mount path must be absolute (start with /)", v)
+		}
 		mounts = append(mounts, k8s.DebugVolumeMount{
-			VolumeName: parts[0],
-			MountPath:  parts[1],
+			VolumeName: volName,
+			MountPath:  mountPath,
 		})
 	}
 
@@ -117,7 +138,7 @@ func runNonInteractive(client *k8s.Client) error {
 		fmt.Printf("  Volume: %s -> %s\n", m.VolumeName, m.MountPath)
 	}
 
-	containerName, err := client.CreateEphemeralContainer(ctx, k8s.EphemeralContainerOpts{
+	containerName, warnings, err := client.CreateEphemeralContainer(ctx, k8s.EphemeralContainerOpts{
 		PodName:      pod,
 		Namespace:    namespace,
 		Image:        image,
@@ -128,6 +149,9 @@ func runNonInteractive(client *k8s.Client) error {
 	}
 
 	fmt.Printf("Container '%s' created successfully!\n", containerName)
+	for _, w := range warnings {
+		fmt.Printf("Warning: %s\n", w)
+	}
 	fmt.Printf("Attaching...\n")
 
 	return k8s.AttachToContainer(namespace, pod, containerName)

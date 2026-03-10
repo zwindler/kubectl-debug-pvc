@@ -43,6 +43,17 @@ func progressView(m model) string {
 		b.WriteString(successStyle.Render(fmt.Sprintf("  Container '%s' created successfully!\n", m.containerName)))
 		b.WriteString("\n")
 
+		// Show warnings about inherited security context restrictions
+		if len(m.warnings) > 0 {
+			b.WriteString(warningStyle.Render("  Security context warnings:"))
+			b.WriteString("\n")
+			for _, w := range m.warnings {
+				b.WriteString(warningStyle.Render(fmt.Sprintf("  ! %s", w)))
+				b.WriteString("\n")
+			}
+			b.WriteString("\n")
+		}
+
 		// Show manual attach command
 		b.WriteString(dimStyle.Render("  To attach manually:\n"))
 		attachCmd := fmt.Sprintf("  kubectl attach -n %s %s -c %s -it",

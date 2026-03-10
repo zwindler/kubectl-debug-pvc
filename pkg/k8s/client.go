@@ -16,13 +16,17 @@ type Client struct {
 
 // NewClient creates a Kubernetes client using standard kubeconfig resolution.
 // It respects KUBECONFIG env var, --kubeconfig flag, and ~/.kube/config.
-func NewClient(kubeconfig string) (*Client, error) {
+// If kubeContext is non-empty it overrides the current context in the kubeconfig.
+func NewClient(kubeconfig, kubeContext string) (*Client, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if kubeconfig != "" {
 		loadingRules.ExplicitPath = kubeconfig
 	}
 
 	configOverrides := &clientcmd.ConfigOverrides{}
+	if kubeContext != "" {
+		configOverrides.CurrentContext = kubeContext
+	}
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 
 	restConfig, err := kubeConfig.ClientConfig()

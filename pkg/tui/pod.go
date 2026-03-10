@@ -33,7 +33,17 @@ func podView(m model) string {
 		b.WriteString(dimStyle.Render("  No matching pods found"))
 		b.WriteString("\n")
 	} else {
-		for i, pod := range filtered {
+		const headerLines = 5
+		visible := m.height - headerLines
+		if visible < 1 {
+			visible = len(filtered)
+		}
+		end := m.viewportOffset + visible
+		if end > len(filtered) {
+			end = len(filtered)
+		}
+		for i := m.viewportOffset; i < end; i++ {
+			pod := filtered[i]
 			cursor := "  "
 			if i == m.cursor {
 				cursor = cursorStyle.Render("> ")
@@ -54,6 +64,11 @@ func podView(m model) string {
 			pvcs := dimStyle.Render(fmt.Sprintf(", PVCs: %s)", strings.Join(pvcNames, ", ")))
 
 			fmt.Fprintf(&b, "%s%s%s%s\n", cursor, name, status, pvcs)
+		}
+		if len(filtered) > visible {
+			shown := fmt.Sprintf("  %d-%d of %d", m.viewportOffset+1, end, len(filtered))
+			b.WriteString(dimStyle.Render(shown))
+			b.WriteString("\n")
 		}
 	}
 

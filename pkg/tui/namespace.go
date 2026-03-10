@@ -33,7 +33,17 @@ func namespaceView(m model) string {
 		b.WriteString(dimStyle.Render("  No matching namespaces found"))
 		b.WriteString("\n")
 	} else {
-		for i, ns := range filtered {
+		const headerLines = 5
+		visible := m.height - headerLines
+		if visible < 1 {
+			visible = len(filtered)
+		}
+		end := m.viewportOffset + visible
+		if end > len(filtered) {
+			end = len(filtered)
+		}
+		for i := m.viewportOffset; i < end; i++ {
+			ns := filtered[i]
 			cursor := "  "
 			if i == m.cursor {
 				cursor = cursorStyle.Render("> ")
@@ -46,6 +56,11 @@ func namespaceView(m model) string {
 
 			detail := dimStyle.Render(fmt.Sprintf(" (%d PVCs)", ns.PVCCount))
 			fmt.Fprintf(&b, "%s%s%s\n", cursor, name, detail)
+		}
+		if len(filtered) > visible {
+			shown := fmt.Sprintf("  %d-%d of %d", m.viewportOffset+1, end, len(filtered))
+			b.WriteString(dimStyle.Render(shown))
+			b.WriteString("\n")
 		}
 	}
 

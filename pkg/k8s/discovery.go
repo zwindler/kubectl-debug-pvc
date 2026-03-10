@@ -44,10 +44,12 @@ func (c *Client) DiscoverNamespacesWithPVCs(ctx context.Context) ([]NamespaceInf
 		return nil, fmt.Errorf("failed to list PVCs: %w", err)
 	}
 
-	// Count PVCs per namespace
+	// Count PVCs per namespace — only Bound PVCs represent usable storage
 	nsPVCCount := make(map[string]int)
 	for i := range pvcs.Items {
-		nsPVCCount[pvcs.Items[i].Namespace]++
+		if pvcs.Items[i].Status.Phase == corev1.ClaimBound {
+			nsPVCCount[pvcs.Items[i].Namespace]++
+		}
 	}
 
 	result := make([]NamespaceInfo, 0, len(nsPVCCount))
@@ -80,7 +82,14 @@ func (c *Client) DiscoverPodsWithPVCs(ctx context.Context, namespace string) ([]
 
 	pvcMap := make(map[string]*corev1.PersistentVolumeClaim)
 	for i := range pvcs.Items {
-		pvcMap[pvcs.Items[i].Name] = &pvcs.Items[i]
+		if pvcs.Items[i].Status.Phase == corev1.ClaimBound {
+			pvcMap[pvcs.Items[i].Name] = &pvcs.Items[i]
+		}
+	}
+
+	// If no bound PVCs exist, no pods can have usable mounts
+	if len(pvcMap) == 0 {
+		return nil, nil
 	}
 
 	// Now list pods — we still need to list all pods in the namespace, but this
