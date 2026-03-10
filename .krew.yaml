@@ -1,0 +1,75 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: debug-pvc
+spec:
+  version: {{ .TagName }}
+  homepage: https://github.com/zwindler/kubectl-debug-pvc
+  shortDescription: Debug pods with access to PVC-backed volumes
+  description: |
+    Creates an ephemeral debug container in a running pod and mounts one or
+    more PersistentVolumeClaim-backed volumes into it. Unlike kubectl debug,
+    this plugin supports volumeMounts on ephemeral containers by patching the
+    pod's ephemeralcontainers subresource directly via the Kubernetes API.
+
+    Both an interactive Bubble Tea TUI and a non-interactive CLI flag mode
+    are provided.
+  caveats: |
+    This plugin requires that the target cluster supports ephemeral containers
+    (Kubernetes 1.23+).
+  platforms:
+  - selector:
+      matchLabels:
+        os: linux
+        arch: amd64
+    {{addURIAndSha "https://github.com/zwindler/kubectl-debug-pvc/releases/download/{{ .TagName }}/kubectl-debug_pvc_{{ .TagName }}_linux_amd64.tar.gz" .TagName }}
+    bin: kubectl-debug_pvc
+    files:
+    - from: kubectl-debug_pvc
+      to: .
+    - from: LICENSE
+      to: .
+  - selector:
+      matchLabels:
+        os: linux
+        arch: arm64
+    {{addURIAndSha "https://github.com/zwindler/kubectl-debug-pvc/releases/download/{{ .TagName }}/kubectl-debug_pvc_{{ .TagName }}_linux_arm64.tar.gz" .TagName }}
+    bin: kubectl-debug_pvc
+    files:
+    - from: kubectl-debug_pvc
+      to: .
+    - from: LICENSE
+      to: .
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: amd64
+    {{addURIAndSha "https://github.com/zwindler/kubectl-debug-pvc/releases/download/{{ .TagName }}/kubectl-debug_pvc_{{ .TagName }}_darwin_amd64.tar.gz" .TagName }}
+    bin: kubectl-debug_pvc
+    files:
+    - from: kubectl-debug_pvc
+      to: .
+    - from: LICENSE
+      to: .
+  - selector:
+      matchLabels:
+        os: darwin
+        arch: arm64
+    {{addURIAndSha "https://github.com/zwindler/kubectl-debug-pvc/releases/download/{{ .TagName }}/kubectl-debug_pvc_{{ .TagName }}_darwin_arm64.tar.gz" .TagName }}
+    bin: kubectl-debug_pvc
+    files:
+    - from: kubectl-debug_pvc
+      to: .
+    - from: LICENSE
+      to: .
+  - selector:
+      matchLabels:
+        os: windows
+        arch: amd64
+    {{addURIAndSha "https://github.com/zwindler/kubectl-debug-pvc/releases/download/{{ .TagName }}/kubectl-debug_pvc_{{ .TagName }}_windows_amd64.zip" .TagName }}
+    bin: kubectl-debug_pvc.exe
+    files:
+    - from: kubectl-debug_pvc.exe
+      to: .
+    - from: LICENSE
+      to: .

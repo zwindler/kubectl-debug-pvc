@@ -1,0 +1,99 @@
+version: 2
+
+project_name: kubectl-debug_pvc
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+
+builds:
+  - id: kubectl-debug_pvc
+    binary: kubectl-debug_pvc
+    main: .
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    # windows/arm64 is uncommon for server use; skip it
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: kubectl-debug_pvc
+    ids: [kubectl-debug_pvc]
+    # kubectl plugin naming: the binary inside the archive must keep the
+    # exact name kubectl-debug_pvc so that kubectl plugin discovery works.
+    name_template: "kubectl-debug_pvc_{{ .Tag }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    formats: [tar.gz]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "kubectl-debug_pvc_{{ .Tag }}_checksums.txt"
+  algorithm: sha256
+
+# Sign release artifacts with Sigstore cosign (keyless / OIDC-based).
+# No long-lived private key is required: cosign uses the GitHub Actions OIDC
+# token to obtain a short-lived certificate from Fulcio and records the
+# signature in the Rekor transparency log.
+signs:
+  - cmd: cosign
+    # Sign the checksum file; verifying one file is enough since all artifact
+    # hashes are inside it. Use --yes to suppress interactive prompts in CI.
+    args:
+      - sign-blob
+      - --yes
+      - --output-certificate=${certificate}
+      - --output-signature=${signature}
+      - ${artifact}
+    artifacts: checksum
+    output: true
+
+release:
+  github:
+    owner: zwindler
+    name: kubectl-debug-pvc
+  # Draft first so you can review before publishing
+  draft: false
+  # Mark as pre-release automatically for pre-release version tags (e.g. v1.0.0-rc.1)
+  prerelease: auto
+  name_template: "v{{ .Version }}"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+  groups:
+    - title: "Breaking Changes"
+      regexp: "^.*!:.*$"
+      order: 0
+    - title: "New Features"
+      regexp: "^feat"
+      order: 1
+    - title: "Bug Fixes"
+      regexp: "^fix"
+      order: 2
+    - title: "Other Changes"
+      order: 999

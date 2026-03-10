@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      # Only run on semver tags: v1.2.3, v1.2.3-rc.1, etc.
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+# Deny all permissions by default; grant only what each job needs.
+permissions: {}
+
+jobs:
+  release:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+
+    permissions:
+      # Write release assets and create the GitHub Release
+      contents: write
+      # Required by cosign keyless signing to obtain an OIDC token from GitHub
+      id-token: write
+
+    steps:
+      # Full history is required by GoReleaser to build the changelog.
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # Quality gate: the tag is not released if checks fail.
+      - name: Run checks
+        run: make check
+
+      # cosign uses the GitHub Actions OIDC token to get a short-lived cert
+      # from Sigstore Fulcio. No private key is stored anywhere; the signature
+      # is recorded in the Rekor public transparency log.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da9e9374 # v3.8.1
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@9c156ee8a17a598857849441385a2041ef570552 # v6.3.0
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Enables keyless (OIDC-based) signing via Sigstore.
+          COSIGN_EXPERIMENTAL: "1"
+
+      # Open a PR against krew-index to update the plugin manifest.
+      # The first submission must be done manually (one-time PR to krew-index).
+      # Subsequent releases are automated by this step.
+      # Pre-releases (tags containing a hyphen, e.g. v1.0.0-rc.1) are skipped
+      # automatically by krew-release-bot.
+      - name: Update krew index
+        uses: rajatjindal/krew-release-bot@c970b8a8f6dbc2f2285a26e3ae160903b87002c3 # v0.0.51

@@ -30,6 +30,24 @@ When a pod holds an exclusive (RWO) lock on a PVC, you can't simply spin up anot
 
 ## Installation
 
+### Via Krew (recommended)
+
+[Krew](https://krew.sigs.k8s.io/) is the kubectl plugin manager.
+
+```bash
+kubectl krew install debug-pvc
+```
+
+Once installed, update with:
+
+```bash
+kubectl krew upgrade debug-pvc
+```
+
+> **Note:** The first release of this plugin must be manually submitted to the
+> [krew-index](https://github.com/kubernetes-sigs/krew-index). Subsequent
+> releases are automated via [krew-release-bot](https://github.com/rajatjindal/krew-release-bot).
+
 ### From source
 
 ```bash
@@ -210,6 +228,57 @@ rules:
 Ephemeral containers are append-only in the Kubernetes API. Once created, they cannot be deleted or modified -- this is a Kubernetes design constraint, not a limitation of this tool. Stopped debug containers remain as terminated entries in the pod spec. They consume no CPU or memory, but will show up in `kubectl describe pod` output.
 
 The only way to clean them up is to restart the pod (e.g., `kubectl rollout restart deployment/...`).
+
+## Releases
+
+Releases are automated via [GoReleaser](https://goreleaser.com/) and a GitHub Actions workflow triggered by pushing a semver tag.
+
+### Creating a release
+
+```bash
+# Tag the commit you want to release
+git tag -s v1.2.3 -m "Release v1.2.3"
+git push origin v1.2.3
+```
+
+The `release` workflow then:
+
+1. Runs `make check` (go vet + golangci-lint) — the tag is rejected if checks fail
+2. Builds binaries for Linux, macOS, and Windows (amd64 + arm64) with `-trimpath` and `CGO_ENABLED=0` for reproducible, statically linked binaries
+3. Packages each binary as a `.tar.gz` (`.zip` on Windows) with the LICENSE and README
+4. Produces a SHA-256 checksum file covering all archives
+5. Signs the checksum file with [cosign](https://github.com/sigstore/cosign) using **keyless signing** — no private key is stored anywhere; the GitHub Actions OIDC token is used to obtain a short-lived certificate from [Sigstore Fulcio](https://github.com/sigstore/fulcio), and the signature is recorded in the [Rekor](https://github.com/sigstore/rekor) public transparency log
+6. Generates a CycloneDX SBOM for each archive using [syft](https://github.com/anchore/syft)
+7. Creates the GitHub Release with all assets attached
+
+### Verifying a release
+
+To verify the checksum file signature after downloading:
+
+```bash
+# Download the release assets
+gh release download v1.2.3 --repo zwindler/kubectl-debug-pvc
+
+# Verify the signature against the Rekor transparency log
+# (no local key needed — cosign looks up the cert in Rekor)
+cosign verify-blob \
+  --certificate kubectl-debug_pvc_v1.2.3_checksums.txt.pem \
+  --signature  kubectl-debug_pvc_v1.2.3_checksums.txt.sig \
+  --certificate-identity-regexp "https://github.com/zwindler/kubectl-debug-pvc/.github/workflows/release.yml@refs/tags/v.*" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  kubectl-debug_pvc_v1.2.3_checksums.txt
+
+# Then verify your archive against the checksums
+sha256sum --check --ignore-missing kubectl-debug_pvc_v1.2.3_checksums.txt
+```
+
+### GitHub Actions security posture
+
+- All workflow permissions default to `{}` (none); each job grants only what it needs
+- All third-party actions are pinned to immutable commit SHAs, not mutable version tags
+- The runner is hardened with [step-security/harden-runner](https://github.com/step-security/harden-runner) in `audit` mode (egress monitoring)
+- `id-token: write` is granted only to the release job, and only for the duration of that job
+- `GITHUB_TOKEN` is the only secret used — no external credentials are stored in the repository
 
 ## License
 

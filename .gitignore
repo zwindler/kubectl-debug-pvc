@@ -1,6 +1,9 @@
 # Build binary
 kubectl-debug_pvc
 
+# GoReleaser output
+dist/
+
 # Go
 *.exe
 *.exe~

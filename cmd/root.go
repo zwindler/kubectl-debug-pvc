@@ -61,8 +61,9 @@ func init() {
 	rootCmd.Flags().StringVar(&mountBase, "mount-base", "/debug", "Base mount path (used in interactive mode)")
 }
 
-// Execute runs the root command.
-func Execute() {
+// Execute runs the root command with the given build version.
+func Execute(version string) {
+	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
